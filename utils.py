@@ -2,6 +2,15 @@
 import numpy as np
 import h5py
 
+
+def read_h5_file(h5_path):
+    with h5py.File(h5_path, 'r') as hf:
+        f_all = np.array(hf['force_fields'])        # (N_total, nx)
+        x_all = np.array(hf['coordinates'])        # (N_total, nx)
+        u_all = np.array(hf['solutions'])          # (N_total, nx)
+        bc_all = np.array(hf['boundary_conditions'])  # (N_total, 2)
+    return f_all, x_all, u_all, bc_all
+
 def get_train_data(h5_path, domain_samples, seq_len, indices, val_indices, seed=1234):
     rng = np.random.RandomState(seed)
 
@@ -98,7 +107,29 @@ def get_train_data(h5_path, domain_samples, seq_len, indices, val_indices, seed=
     return ivals, ovals, idx_si
 
 
-# ret = get_train_data_poisson('data/poisson_5000.h5', domain_samples=2000, seq_len=60, indices=np.arange(80), val_indices=np.arange(80, 100))
+def prepare_prediction_data(
+        x_data,
+        f_data,
+        u_data,
+        context_indices,
+        sample_idx
+):
+    u_sample = u_data[sample_idx]
+    x_sample = x_data[sample_idx]
+    f_sample = f_data[sample_idx]
 
-# for k, v in ret.items():
-#     print(k, v.shape)
+    u_context = u_data[context_indices]
+    f_context = f_data[context_indices]
+
+    xbc = np.array([[0.0], [1.0]], dtype=np.float32).repeat(len(context_indices), axis=0).reshape(-1, 1)
+    ubc = u_context[[0, -1]].reshape(-1, 1).astype(np.float32)
+    fbc = f_context[[0, -1]].reshape(-1, 1).astype(np.float32)
+
+    return {
+        'x': x_sample.reshape(-1, 1).astype(np.float32),
+        'f': f_sample.reshape(-1, 1).astype(np.float32),
+        'u_true': u_sample.reshape(-1, 1).astype(np.float32),
+        'xbc': xbc,
+        'fbc': fbc,
+        'ubc': ubc
+    }
