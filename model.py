@@ -11,7 +11,7 @@ import wandb
 import numpy as np
 import pandas as pd
 from utils import get_train_data
-from pde import PdeModel
+from py_pde import PdeModel
 
 np.random.seed(1234)
 tf.random.set_seed(1234)
@@ -153,7 +153,7 @@ cm = PdeModel(inputs=ivals, outputs=ovals, get_models=model_dict, loss_fn=loss_f
               parameters=parameters, batches=batches)
 
 epochs = 10000
-vf = 100  # verbose frequency
+vf = 1000  # verbose frequency
 pf = 1000  # plot frequency
 wb = False  # wandb logging
 
@@ -195,4 +195,4 @@ if wb:
     wandb.finish()
 
 # Evaluation
-cm.nn_model.save(log_dir + 'Advection_model', save_format='tf')
+cm.nn_model.save(log_dir + 'Poisson_model.keras')
