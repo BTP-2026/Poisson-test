@@ -25,9 +25,9 @@ class PdeModel:
         self.parameters = parameters
 
         # Create efficient data pipelines
-        self.inner_data = self.create_data_pipeline(inputs['xin'], inputs['fin'], inputs['xbc_in'], inputs['fbc_in'], inputs['ubc_in'],batch=batches).cache()
-        self.bound_data = self.create_data_pipeline(inputs['xb'], inputs['fb'], outputs['ub'],inputs['xbc_b'], inputs['fbc_b'], inputs['ubc_b'],batch=batches).cache()
-        self.val_data = self.create_data_pipeline(inputs['xval'], inputs['fval'], outputs['uval'],inputs['xbc_val'], inputs['fbc_val'], inputs['ubc_val'], batch=val_batches).cache()
+        self.inner_data = self.create_data_pipeline(inputs['xin'], inputs['fin'], inputs['xbc_in'], inputs['ubc_in'],batch=batches).cache()
+        self.bound_data = self.create_data_pipeline(inputs['xb'], outputs['ub'],inputs['xbc_b'], inputs['ubc_b'],batch=batches).cache()
+        self.val_data = self.create_data_pipeline(inputs['xval'], outputs['uval'],inputs['xbc_val'], inputs['ubc_val'], batch=val_batches).cache()
 
         self.nn_model = get_models['nn_model']
 
@@ -46,13 +46,13 @@ class PdeModel:
         return dataset
 
     @tf.function
-    def Pde_residual(self, input_data, beta, training=True):
-        x, f, xbc, fbc, ubc = input_data
+    def Pde_residual(self, input_data, training=True):
+        x, f, xbc, ubc = input_data
         with tf.GradientTape(persistent=True) as tape:
             tape.watch(x)
             with tf.GradientTape(persistent=True) as tape2:
                 tape2.watch(x)
-                u = self.nn_model([x, f, xbc, fbc, ubc], training=training)
+                u = self.nn_model([x, xbc, ubc], training=training)
             ux = tape2.gradient(u, x)
 
         uxx = tape.gradient(ux, x)
@@ -66,20 +66,14 @@ class PdeModel:
         residual_loss = tf.square(ge)
         return residual_loss
 
-    @staticmethod
-    def get_repeated_tensors(x_sen, t_sen, val_sen, size):
-        return (tf.repeat(x_sen, [size], axis=0),
-                tf.repeat(t_sen, [size], axis=0),
-                tf.repeat(val_sen, [size], axis=0))
-
     @tf.function
-    def train_step(self, bound_data, inner_data, beta):
+    def train_step(self, bound_data, inner_data):
 
-        xb, fb, ub, xbc, fbc, ubc = bound_data
+        xb, ub, xbc, ubc = bound_data
 
         with (tf.GradientTape(persistent=True) as tape):
-            ub_pred = self.nn_model([xb, fb, xbc, fbc, ubc], training=True)
-            residual_loss = tf.reduce_mean(self.Pde_residual(inner_data, beta, training=True))
+            ub_pred = self.nn_model([xb,xbc, ubc], training=True)
+            residual_loss = tf.reduce_mean(self.Pde_residual(inner_data, training=True))
             bound_loss = self.loss_fn(ub, ub_pred)
             loss = residual_loss + bound_loss
 
@@ -99,10 +93,10 @@ class PdeModel:
     @tf.function
     def test_step(self, inp_data):
 
-        x, f, u, xbc, fbc, ubc = inp_data
-        upred = self.nn_model([x, f, xbc, fbc, ubc], training=False)
+        x, f, u, xbc, ubc = inp_data
+        upred = self.nn_model([x, xbc,ubc], training=False)
         val_data_loss = self.loss_fn(u, upred)
-        val_res_loss = tf.reduce_mean(self.Pde_residual([x, f, xbc, fbc, ubc], self.parameters['beta'], training=False))
+        val_res_loss = tf.reduce_mean(self.Pde_residual([x, f, xbc, ubc], training=False))
         val_loss = val_data_loss + val_res_loss
 
         self.val_loss_tracker.update_state(val_loss)
@@ -128,8 +122,6 @@ class PdeModel:
         val_history = {"val_loss": [], "val_data_loss": [], "val_res_loss": []}
 
         self.get_model_graph(log_dir=log_dir, wb=wb)
-        beta = self.parameters['beta']
-
 
         for epoch in range(epochs):
             start_time = time.time()
@@ -137,7 +129,7 @@ class PdeModel:
 
             for j, (bound_data, inner_data) in enumerate(zip(
                      self.bound_data, self.inner_data)):
-                logs = self.train_step(bound_data, inner_data, beta)
+                logs = self.train_step(bound_data, inner_data)
 
             if wb:
                 wandb.log(logs, step=epoch + 1)

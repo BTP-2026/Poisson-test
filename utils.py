@@ -29,10 +29,8 @@ def get_train_data(h5_path, domain_samples, seq_len, indices, val_indices, seed=
     u_train = u_all[indices]
     bc_train = bc_all[indices]
 
-    f_val = f_all[val_indices]
     x_val = x_all[val_indices]
     u_val = u_all[val_indices]
-    bc_val = bc_all[val_indices]
 
     idxs = rng.randint(0, nx, size=(n_train, domain_samples))
 
@@ -48,7 +46,6 @@ def get_train_data(h5_path, domain_samples, seq_len, indices, val_indices, seed=
     idx_si = rng.choice(nx, seq_len, replace=False)
     x_sens = x_train[:, idx_si].reshape(n_train, 1, seq_len).astype(np.float32)   # (n_train,1,seq_len)
     u_sens = u_train[:, idx_si].reshape(n_train, 1, seq_len).astype(np.float32)
-    f_sens = f_train[:, idx_si].reshape(n_train, 1, seq_len).astype(np.float32)
 
     def expand_for(n_repeat, sens):   # sens shape (n_train, 1, seq_len) -> returns (n_train * n_repeat, seq_len, 1)
         out = np.repeat(sens, n_repeat, axis=1)               # (n_train, n_repeat, seq_len)
@@ -61,41 +58,31 @@ def get_train_data(h5_path, domain_samples, seq_len, indices, val_indices, seed=
 
     xbc_in = expand_for(ins, x_sens)
     ubc_in = expand_for(ins, u_sens)
-    fbc_in = expand_for(ins, f_sens)
 
     xbc_b = expand_for(bs, x_sens)     
     ubc_b = expand_for(bs, u_sens)
-    fbc_b = expand_for(bs, f_sens)
 
 
     xval = x_val.reshape(-1, 1).astype(np.float32)
     uval = u_val.reshape(-1, 1).astype(np.float32)
-    fval = f_val.reshape(-1, 1).astype(np.float32)
 
     vals = xval.shape[0] // n_val 
     xv_sens = x_val[:, idx_si].reshape(n_val, 1, seq_len).astype(np.float32)
     uv_sens = u_val[:, idx_si].reshape(n_val, 1, seq_len).astype(np.float32)
-    fv_sens = f_val[:, idx_si].reshape(n_val, 1, seq_len).astype(np.float32)
 
     xbc_val = expand_for(vals, xv_sens)
     ubc_val = expand_for(vals, uv_sens)
-    fbc_val = expand_for(vals, fv_sens)
 
     ivals = {
         'xin': xd,
         'fin': fd,
         'xbc_in': xbc_in,
-        'fbc_in': fbc_in,
         'ubc_in': ubc_in,
         'xb': xb,
-        'fb': fb,
         'xbc_b': xbc_b,
-        'fbc_b': fbc_b,
         'ubc_b': ubc_b,
         'xval': xval,
-        'fval': fval,
         'xbc_val': xbc_val,
-        'fbc_val': fbc_val,
         'ubc_val': ubc_val
     }
 
@@ -116,20 +103,14 @@ def prepare_prediction_data(
 ):
     u_sample = u_data[sample_idx]
     x_sample = x_data[sample_idx]
-    f_sample = f_data[sample_idx]
-
     u_context = u_data[context_indices]
-    f_context = f_data[context_indices]
 
     xbc = np.array([[0.0], [1.0]], dtype=np.float32).repeat(len(context_indices), axis=0).reshape(-1, 1)
     ubc = u_context[[0, -1]].reshape(-1, 1).astype(np.float32)
-    fbc = f_context[[0, -1]].reshape(-1, 1).astype(np.float32)
 
     return {
         'x': x_sample.reshape(-1, 1).astype(np.float32),
-        'f': f_sample.reshape(-1, 1).astype(np.float32),
         'u_true': u_sample.reshape(-1, 1).astype(np.float32),
         'xbc': xbc,
-        'fbc': fbc,
         'ubc': ubc
     }

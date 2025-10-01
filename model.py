@@ -41,7 +41,7 @@ ivals, ovals, idx_si = get_train_data(data_dir, domain_samples=domain_samples,
                                         seq_len=seq_len,
                                         indices=train_indices,
                                         val_indices=val_indices)
-parameters = {'beta': 0.1, 'test_ind': test_indices}
+parameters = {'test_ind': test_indices}
 
 # Building the PINTO model using functional API
 initializer = tf.keras.initializers.GlorotUniform(seed=1234)
@@ -59,14 +59,12 @@ def get_model(model_name, layer_names, layer_units, activation='swish'):
 # Lifting operator for query values
 input1 = layers.Input(shape=(1,), name='x_input')
 rescale_input1 = layers.Rescaling(scale=2, offset=-1.)(input1)
-input2 = layers.Input(shape=(1,), name='f_input')
-rescale_input2 = layers.Rescaling(scale=2., offset=-1.)(input2)
 
 sp_trans = get_model(model_name='spatial_transformation',
                      layer_names='spatial_layer',
                      layer_units=[64, 64], activation='tanh')
 
-sp = layers.Concatenate()([rescale_input1, rescale_input2])
+sp = layers.Concatenate()([rescale_input1])
 sp = layers.Reshape(target_shape=(1, -1))(sp)
 spq = sp_trans(sp)
 residual = spq
@@ -74,10 +72,7 @@ residual = spq
 # MLP for key values (initial coordinates)
 input3 = layers.Input(shape=(None, 1,), name='Xbc_layer')
 rescale_input3 = layers.Rescaling(scale=2., offset=-1)(input3)
-input4 = layers.Input(shape=(None, 1,), name='fbc_layer')
-rescale_input4 = layers.Rescaling(scale=2., offset=-1.)(input4)
-
-pe = layers.Concatenate()([rescale_input3, rescale_input4])
+pe = layers.Concatenate()([rescale_input3])
 pe = get_model(model_name='BPE',
                layer_names='bpe_layer',
                layer_units=[64, 64], activation='tanh')(pe)
@@ -110,13 +105,12 @@ ou = layers.Add()([residual, ou])
 ou = layers.Dense(units=1, kernel_initializer=initializer, name='output_u')(ou)
 
 # building the PINTO model
-model = keras.Model([input1, input2, input3, input4, input5],
+model = keras.Model([input1, input3, input5],
                     [ou])
 
 # metrics to track the performance of the model during training
 metrics = {"loss": keras.metrics.Mean(name='loss'),
            "bound_loss": keras.metrics.Mean(name='bound_loss'),
-           "init_loss": keras.metrics.Mean(name='init_loss'),
            "residual_loss": keras.metrics.Mean(name='residual_loss'),
            "val_loss": keras.metrics.Mean(name='val_loss'),
            "val_data_loss": keras.metrics.Mean(name='val_data_loss'),
@@ -152,7 +146,7 @@ cm = PdeModel(inputs=ivals, outputs=ovals, get_models=model_dict, loss_fn=loss_f
               optimizer=optimizer, metrics=metrics,
               parameters=parameters, batches=batches)
 
-epochs = 10000
+epochs = 5000
 vf = 1000  # verbose frequency
 pf = 1000  # plot frequency
 wb = False  # wandb logging
