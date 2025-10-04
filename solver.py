@@ -15,6 +15,7 @@ bc = np.zeros((num_samples, 2))
 for i in range(num_samples):
     grid = CartesianGrid([[0,1]], 64)
     x = grid.cell_coords[:,0]
+    print(x)
     k = np.random.randint(1, 5)
     a = np.random.uniform(-10, 10)
     data = a * np.sin(k * np.pi * x)

@@ -37,10 +37,8 @@ def get_train_data(h5_path, domain_samples, seq_len, indices, val_indices, seed=
     xd = x_train[np.arange(n_train)[:, None], idxs].reshape(-1, 1).astype(np.float32)
     fd = f_train[np.arange(n_train)[:, None], idxs].reshape(-1, 1).astype(np.float32)
 
-    # boudry points xb is just drichlet bc at 0 and 1 for all samples see solver.py for more
-    xb = np.tile(np.array([[0.0], [1.0]], dtype=np.float32), (n_train, 1))  
+    xb = x_train[:, [0, -1]].astype(np.float32).reshape(-1, 1)   
     ub = bc_train.astype(np.float32).reshape(-1, 1)
-    fb = f_train[:, [0, -1]].astype(np.float32).reshape(-1, 1)                
 
    
     idx_si = rng.choice(nx, seq_len, replace=False)
