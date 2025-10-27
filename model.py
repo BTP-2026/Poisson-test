@@ -28,6 +28,7 @@ parser.add_argument('--sensor-dir', type=str, default=None, help='Path to sensor
 parser.add_argument('--num-indcies', type=int, default=100, help='Number of indices to use')
 parser.add_argument('--learning-rate', type=float, default=1e-5, help='Initial learning rate for the optimizer.')
 parser.add_argument('--units', type=int, default=64, help='Number of units in each layer.')
+parser.add_argument('--bound-w', type=float, default=10.0, help='Weight for boundary loss component.')
 
 args = parser.parse_args()
 
@@ -170,7 +171,7 @@ model_dict = {"nn_model": model}
 # initiating the PdeModel class
 cm = PdeModel(inputs=ivals, outputs=ovals, get_models=model_dict, loss_fn=loss_fn,
               optimizer=optimizer, metrics=metrics,
-              parameters=parameters, batches=batches, umin=umin, umax=umax)
+              parameters=parameters, batches=batches, umin=umin, umax=umax, bound_w=args.bound_w)
 
 vf = 100000  # validtation frequency
 pf = 1000  # plot frequency

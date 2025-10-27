@@ -22,7 +22,7 @@ def unscale(x_scaled, umin, umax):
 
 class PdeModel:
 
-    def __init__(self, inputs, outputs, get_models, loss_fn, optimizer, metrics, parameters,umin, umax,
+    def __init__(self, inputs, outputs, get_models, loss_fn, optimizer, metrics, parameters,umin, umax,bound_w,
                  batches=1, val_batches=50):
 
         self.inputs = inputs
@@ -47,6 +47,7 @@ class PdeModel:
         self.val_residual_loss_tracker = metrics['val_res_loss']
         self.umin = umin
         self.umax = umax
+        self.bound_w = bound_w
 
     @staticmethod
     def create_data_pipeline(*args, batch):
@@ -82,10 +83,10 @@ class PdeModel:
         xb, fb, ub, xbc, ubc = bound_data
 
         with (tf.GradientTape(persistent=True) as tape):
-            ub_pred = self.nn_model([xb, fb, xbc, ubc], training=True)
+            ub_pred = scale(self.nn_model([xb, fb, xbc, ubc], training=True), self.umin, self.umax)
             residual_loss = tf.reduce_mean(self.Pde_residual(inner_data, training=True))
             bound_loss = self.loss_fn(ub, ub_pred)
-            loss = residual_loss + 50 * bound_loss
+            loss = residual_loss + self.bound_w * bound_loss
 
         grads = tape.gradient(loss, self.nn_model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.nn_model.trainable_weights))
