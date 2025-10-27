@@ -1,0 +1,20 @@
+[project]
+name = "poisson-datagen"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "h5py>=3.14.0",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.10.6",
+    "notebook>=7.4.7",
+    "numpy>=2.2.6",
+    "pandas>=2.3.2",
+    "py-pde>=0.46.0",
+    "pydoe>=0.3.8",
+    "scikit-learn>=1.7.2",
+    "tensorflow>=2.20.0",
+    "torch>=2.9.0",
+    "wandb>=0.22.0",
+]
