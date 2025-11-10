@@ -16,15 +16,16 @@ def scale(x, umin, umax):
     return (x - umin) / (umax - umin)
 
 def unscale(x_scaled, umin, umax):
-    return x_scaled * (umin - umin) + umax
+    return x_scaled * (umax - umin) + umin
 
 
 
 class PdeModel:
 
     def __init__(self, inputs, outputs, get_models, loss_fn, optimizer, metrics, parameters,umin, umax,bound_w,
+                 update_weight_in_epoch=None,
                  batches=1, val_batches=50):
-
+        self.update_weight_in_epoch = update_weight_in_epoch
         self.inputs = inputs
         self.outputs = outputs
         self.loss_fn = loss_fn
@@ -47,7 +48,7 @@ class PdeModel:
         self.val_residual_loss_tracker = metrics['val_res_loss']
         self.umin = umin
         self.umax = umax
-        self.bound_w = bound_w
+        self.bound_w = tf.Variable(bound_w, dtype=tf.float32)
 
     @staticmethod
     def create_data_pipeline(*args, batch):
@@ -78,15 +79,19 @@ class PdeModel:
         return residual_loss
 
     @tf.function
-    def train_step(self, bound_data, inner_data):
+    def train_step(self, bound_data, inner_data, epoch):
 
         xb, fb, ub, xbc, ubc = bound_data
-
         with (tf.GradientTape(persistent=True) as tape):
             ub_pred = scale(self.nn_model([xb, fb, xbc, ubc], training=True), self.umin, self.umax)
             residual_loss = tf.reduce_mean(self.Pde_residual(inner_data, training=True))
-            bound_loss = self.loss_fn(ub, ub_pred)
-            loss = residual_loss + self.bound_w * bound_loss
+            # Use relative MAE for boundary loss when targets are near zero
+            bound_loss = self.loss_fn(scale(ub, self.umin, self.umax), ub_pred)
+            if self.update_weight_in_epoch is not None:
+                new_bound_w = residual_loss / bound_loss
+                condition = tf.equal(tf.constant(epoch % self.update_weight_in_epoch), 0)
+                self.bound_w.assign(tf.cond(condition, lambda: tf.cast(new_bound_w, tf.float32), lambda: self.bound_w))
+            loss = self.bound_w * residual_loss + bound_loss
 
         grads = tape.gradient(loss, self.nn_model.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.nn_model.trainable_weights))
@@ -140,7 +145,7 @@ class PdeModel:
 
             for j, (bound_data, inner_data) in enumerate(zip(
                      self.bound_data, self.inner_data)):
-                logs = self.train_step(bound_data, inner_data)
+                logs = self.train_step(bound_data, inner_data, epoch, )
 
             if wb:
                 wandb.log(logs, step=epoch + 1)

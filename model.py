@@ -29,6 +29,8 @@ parser.add_argument('--num-indcies', type=int, default=100, help='Number of indi
 parser.add_argument('--learning-rate', type=float, default=1e-5, help='Initial learning rate for the optimizer.')
 parser.add_argument('--units', type=int, default=64, help='Number of units in each layer.')
 parser.add_argument('--bound-w', type=float, default=10.0, help='Weight for boundary loss component.')
+parser.add_argument('--update-epoch', type=int, default=None, help='Epoch at which to update boundary weight.')
+
 
 args = parser.parse_args()
 
@@ -42,6 +44,7 @@ sensor_dir = args.sensor_dir
 num_indices = args.num_indcies
 initial_learning_rate = args.learning_rate
 units = args.units
+update_weight_in_epoch = args.update_epoch
 
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
@@ -171,7 +174,7 @@ model_dict = {"nn_model": model}
 # initiating the PdeModel class
 cm = PdeModel(inputs=ivals, outputs=ovals, get_models=model_dict, loss_fn=loss_fn,
               optimizer=optimizer, metrics=metrics,
-              parameters=parameters, batches=batches, umin=umin, umax=umax, bound_w=args.bound_w)
+              parameters=parameters, update_weight_in_epoch=update_weight_in_epoch, batches=batches, umin=umin, umax=umax, bound_w=args.bound_w)
 
 vf = 100000  # validtation frequency
 pf = 1000  # plot frequency
